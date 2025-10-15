@@ -254,6 +254,10 @@ function filtrarVisiveis<T extends { Situacao?: string | number | null }>(arr: T
   return arr.filter((l) => !isExcludedSituacao((l as any)?.Situacao));
 }
 
+function manterApenasAtivos<T extends { Situacao?: string | number | null }>(arr: T[]) {
+  return arr.filter((l) => normalizeSituacao((l as any)?.Situacao) === "ativo");
+}
+
 function mediaNotas(l: Linha): number | null {
   const valores: number[] = [];
   for (const d of DISCIPLINAS) {
@@ -450,8 +454,8 @@ export default function App() {
       };
       linhas.push(base);
     });
-    // Filtrar alunos exclu eddos antes de mesclar com b3
-    const visiveis = filtrarVisiveis(linhas);
+  // Filtrar alunos exclu eddos antes de mesclar com b3 e manter apenas ativos
+  const visiveis = manterApenasAtivos(filtrarVisiveis(linhas));
     if (b3.length) {
       const m3 = mapPorChave(b3);
       return visiveis.map((l) => ({ ...l, ...(m3.get(chaveAluno(l)) || {}) }));
@@ -544,9 +548,9 @@ export default function App() {
       out.push(base);
     });
 
-    // Filtrar alunos exclu eddos do relatorio final
-    const visiveis = filtrarVisiveis(out);
-    return visiveis.sort((a, b) => ((a.ALERTA || "") < (b.ALERTA || "") ? 1 : (a.ALERTA || "") > (b.ALERTA || "") ? -1 : (a.Aluno || "").localeCompare(b.Aluno || "")));
+  // Filtrar alunos exclu eddos do relatorio final e manter apenas ativos
+  const visiveis = manterApenasAtivos(filtrarVisiveis(out));
+  return visiveis.sort((a, b) => ((a.ALERTA || "") < (b.ALERTA || "") ? 1 : (a.ALERTA || "") > (b.ALERTA || "") ? -1 : (a.Aluno || "").localeCompare(b.Aluno || "")));
   }, [b1, b2, b3, baseTerceiro, mediaMin, freqMin]);
 
   return (
@@ -647,7 +651,7 @@ export default function App() {
                 </tr>
               </thead>
               <tbody>
-                {(b3.length ? b3 : baseTerceiro).map((l, idx) => (
+                {(manterApenasAtivos(b3.length ? b3 : baseTerceiro)).map((l, idx) => (
                   <tr key={idx} className="border-t">
                     <td className="p-2 w-12">{l.Numero}</td>
                     <td className="p-2 min-w-56">{l.Aluno}</td>

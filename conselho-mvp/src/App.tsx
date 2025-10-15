@@ -491,6 +491,8 @@ export default function App() {
     Risco_Nota?: "SIM" | "NÃO" | "";
     Risco_Frequencia?: "SIM" | "NÃO" | "";
     ALERTA?: string;
+    // médias por disciplina (MediaDisciplina_<DisciplinaName>)
+    [k: `MediaDisciplina_${string}`]: number | null | undefined;
   };
 
   const relatorio: LinhaOut[] = useMemo(() => {
@@ -544,6 +546,19 @@ export default function App() {
       base.Risco_Nota = base.Media_1e2 == null ? "" : base.Media_1e2 < mediaMin ? "SIM" : "NÃO";
       base.Risco_Frequencia = base["Frequencia_Acumulada_%"] == null ? "" : (base["Frequencia_Acumulada_%"] as number) < freqMin ? "SIM" : "NÃO";
       base.ALERTA = base.Risco_Nota === "SIM" || base.Risco_Frequencia === "SIM" ? "⚠️ Verificar caso" : "";
+
+      // Calcular média por disciplina: média aritmética das notas presentes em l1, l2, l3 para cada disciplina
+      for (const d of DISCIPLINAS) {
+        const vals: number[] = [];
+        const v1 = num((l1 as any)?.[d]);
+        const v2 = num((l2 as any)?.[d]);
+        const v3 = num((l3 as any)?.[d]);
+        if (v1 != null) vals.push(v1);
+        if (v2 != null) vals.push(v2);
+        if (v3 != null) vals.push(v3);
+        const key = `MediaDisciplina_${d.replace(/\s+/g, "_")}`;
+        (base as any)[key] = vals.length ? Number((vals.reduce((s, x) => s + x, 0) / vals.length).toFixed(2)) : null;
+      }
 
       out.push(base);
     });
@@ -702,7 +717,9 @@ export default function App() {
               <thead className="bg-gray-100">
                 <tr>
                   {[
-                    "Numero","Aluno","Situacao","Media_1B","Media_2B","Media_1e2","Media_3B","Media_Parcial_1_2_3","Frequencia_1B_%","Frequencia_2B_%","Frequencia_Acumulada_%","Risco_Nota","Risco_Frequencia","ALERTA",
+                    "Numero","Aluno","Situacao","Media_1B","Media_2B","Media_1e2","Media_3B","Media_Parcial_1_2_3",
+                    ...DISCIPLINAS.map((d) => `MediaDisciplina_${d.replace(/\s+/g, "_")}`),
+                    "Frequencia_1B_%","Frequencia_2B_%","Frequencia_Acumulada_%","Risco_Nota","Risco_Frequencia","ALERTA",
                   ].map((h) => (
                     <th key={h} className="p-2 text-left whitespace-nowrap">{h}</th>
                   ))}
@@ -719,6 +736,9 @@ export default function App() {
                     <td className="p-2 font-medium">{r.Media_1e2 ?? ""}</td>
                     <td className="p-2">{r.Media_3B ?? ""}</td>
                     <td className="p-2">{r.Media_Parcial_1_2_3 ?? ""}</td>
+                    {DISCIPLINAS.map((d) => (
+                      <td key={d} className="p-2">{(r as any)[`MediaDisciplina_${d.replace(/\s+/g, "_")}`] ?? ""}</td>
+                    ))}
                     <td className="p-2">{r["Frequencia_1B_%"] ?? ""}</td>
                     <td className="p-2">{r["Frequencia_2B_%"] ?? ""}</td>
                     <td className="p-2 font-medium">{r["Frequencia_Acumulada_%"] ?? ""}</td>

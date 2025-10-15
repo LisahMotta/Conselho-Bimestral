@@ -14,11 +14,17 @@ import * as XLSX from "xlsx"; // ler .xlsx/.xls no navegador
 // 🔧 SELF-TESTS (dev only)
 // ==========================
 function runSelfTests() {
-  try {
-    const csv = [
-      "Numero,Aluno,Situacao,Arte,Faltas,Frequência_%",
-      "1,ALUNO TESTE,ATIVO,7,2,95,",
-    ].join("\n");
+                  {[
+                    "Numero","Aluno","Situacao",
+                    ...DISCIPLINAS.flatMap((d) => ([
+                      `MediaDisciplina_1B_${d.replace(/\s+/g, "_")}`,
+                      `MediaDisciplina_2B_${d.replace(/\s+/g, "_")}`,
+                      `MediaDisciplina_3B_${d.replace(/\s+/g, "_")}`,
+                    ])),
+                    "Frequencia_1B_%","Frequencia_2B_%","Frequencia_Acumulada_%","Risco_Nota","Risco_Frequencia","ALERTA",
+                  ].map((h) => (
+                    <th key={h} className="p-2 text-left whitespace-nowrap">{h}</th>
+                  ))}
     const rows = parseCSV(csv);
     console.assert(rows.length === 1, "[T1] parseCSV: linhas");
     console.assert((rows[0] as any)["Frequencia_%"] === 95, "[T1] parseCSV: freq normalizada e numérica");
@@ -27,9 +33,11 @@ function runSelfTests() {
     console.assert(mediaNotas(linha) === Number(((8 + 6 + 10) / 3).toFixed(2)), "[T2] mediaNotas");
 
     console.assert(num("7,5") === 7.5 && num("99") === 99 && num(80) === 80, "[T3] num conversões");
-  } catch (e) {
-    console.warn("[SELF-TEST] Falha nos testes:", e);
-  }
+                    {DISCIPLINAS.flatMap((d) => ([
+                      <td key={`1_${d}`} className="p-2">{(r as any)[`MediaDisciplina_1B_${d.replace(/\s+/g, "_")}`] ?? ""}</td>,
+                      <td key={`2_${d}`} className="p-2">{(r as any)[`MediaDisciplina_2B_${d.replace(/\s+/g, "_")}`] ?? ""}</td>,
+                      <td key={`3_${d}`} className="p-2">{(r as any)[`MediaDisciplina_3B_${d.replace(/\s+/g, "_")}`] ?? ""}</td>,
+                    ]))}
 }
 
 if (typeof window !== "undefined") {
@@ -333,6 +341,12 @@ export default function App() {
   const [b1, setB1] = useState<Linha[]>([]);
   const [b2, setB2] = useState<Linha[]>([]);
   const [b3, setB3] = useState<Linha[]>([]); // digitado ou carregado
+  const [aulasDadas, setAulasDadas] = useState<Record<string, number>>(() => {
+    const init: Record<string, number> = {};
+    for (const d of DISCIPLINAS) init[d] = 0;
+    return init;
+  });
+  const [aulasModalOpen, setAulasModalOpen] = useState(false);
 
   const [mediaMin, setMediaMin] = useState<number>(5);
   const [freqMin, setFreqMin] = useState<number>(75);
@@ -506,6 +520,19 @@ export default function App() {
         return Number((vals.reduce((s, x) => s + x, 0) / vals.length).toFixed(2));
       })();
 
+      // Médias por disciplina por bimestre
+      for (const d of DISCIPLINAS) {
+        const v1 = num((l1 as any)?.[d]);
+        const v2 = num((l2 as any)?.[d]);
+        const v3 = num((l3 as any)?.[d]);
+        const key1 = `MediaDisciplina_1B_${d.replace(/\s+/g, "_")}`;
+        const key2 = `MediaDisciplina_2B_${d.replace(/\s+/g, "_")}`;
+        const key3 = `MediaDisciplina_3B_${d.replace(/\s+/g, "_")}`;
+        (base as any)[key1] = v1 != null ? v1 : null;
+        (base as any)[key2] = v2 != null ? v2 : null;
+        (base as any)[key3] = v3 != null ? v3 : null;
+      }
+
       base["Frequencia_1B_%"] = num(l1?.["Frequencia_%"]);
       base["Frequencia_2B_%"] = num(l2?.["Frequencia_%"]);
 
@@ -612,7 +639,10 @@ export default function App() {
         <section className="bg-white rounded-2xl shadow p-4">
           <div className="flex items-center justify-between mb-3">
             <h2 className="font-semibold">3º bimestre (Conselho) – Digitação rápida / conferência</h2>
-            <button onClick={() => downloadCSV("relatorio_conselho.csv", relatorio)} className="px-3 py-2 bg-emerald-600 text-white rounded-xl hover:opacity-90">Exportar Relatório (CSV)</button>
+            <div className="flex items-center gap-2">
+              <button onClick={() => setAulasModalOpen(true)} className="px-3 py-2 bg-blue-600 text-white rounded-xl hover:opacity-90">Editar aulas dadas</button>
+              <button onClick={() => downloadCSV("relatorio_conselho.csv", relatorio)} className="px-3 py-2 bg-emerald-600 text-white rounded-xl hover:opacity-90">Exportar Relatório (CSV)</button>
+            </div>
           </div>
 
           <div className="overflow-auto border rounded-xl">
@@ -671,6 +701,26 @@ export default function App() {
             </table>
           </div>
         </section>
+
+        {/* Modal: Aulas dadas por disciplina */}
+        {aulasModalOpen && (
+          <div className="fixed inset-0 bg-black/40 flex items-center justify-center p-4 z-50">
+            <div className="bg-white rounded-2xl shadow-xl w-full max-w-2xl p-4">
+              <h3 className="text-lg font-semibold mb-3">Aulas dadas por disciplina</h3>
+              <div className="grid grid-cols-2 gap-3 max-h-72 overflow-auto">
+                {DISCIPLINAS.map((d) => (
+                  <label key={d} className="flex items-center gap-2 border rounded-lg p-2">
+                    <span className="flex-1">{d}</span>
+                    <input type="number" min={0} className="w-24 border rounded px-2 py-1" value={aulasDadas[d] ?? 0} onChange={(e) => setAulasDadas((prev) => ({ ...prev, [d]: Number(e.target.value) }))} />
+                  </label>
+                ))}
+              </div>
+              <div className="flex justify-end gap-2 mt-4">
+                <button className="px-3 py-2 rounded-xl bg-gray-200" onClick={() => setAulasModalOpen(false)}>Fechar</button>
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* Relatório */}
         <section className="bg-white rounded-2xl shadow p-4">

@@ -717,7 +717,7 @@ export default function App() {
               <thead className="bg-gray-100">
                 <tr>
                   {[
-                    "Numero","Aluno","Situacao","Media_1B","Media_2B","Media_1e2","Media_3B","Media_Parcial_1_2_3",
+                    "Numero","Aluno","Situacao",
                     ...DISCIPLINAS.map((d) => `MediaDisciplina_${d.replace(/\s+/g, "_")}`),
                     "Frequencia_1B_%","Frequencia_2B_%","Frequencia_Acumulada_%","Risco_Nota","Risco_Frequencia","ALERTA",
                   ].map((h) => (
@@ -731,11 +731,6 @@ export default function App() {
                     <td className="p-2">{r.Numero}</td>
                     <td className="p-2 min-w-56">{r.Aluno}</td>
                     <td className="p-2">{r.Situacao}</td>
-                    <td className="p-2">{r.Media_1B ?? ""}</td>
-                    <td className="p-2">{r.Media_2B ?? ""}</td>
-                    <td className="p-2 font-medium">{r.Media_1e2 ?? ""}</td>
-                    <td className="p-2">{r.Media_3B ?? ""}</td>
-                    <td className="p-2">{r.Media_Parcial_1_2_3 ?? ""}</td>
                     {DISCIPLINAS.map((d) => (
                       <td key={d} className="p-2">{(r as any)[`MediaDisciplina_${d.replace(/\s+/g, "_")}`] ?? ""}</td>
                     ))}

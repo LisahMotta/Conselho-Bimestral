@@ -76,6 +76,9 @@ const headerMap: Record<string, string> = {
   "numero": "Numero",
   "aluno": "Aluno",
   "aluno(a)": "Aluno",
+  "alunos": "Aluno",
+  "aluno(s)": "Aluno",
+  "nome do aluno": "Aluno",
   "nome": "Aluno",
   "sit": "Situacao",
   "situacao": "Situacao",
@@ -232,36 +235,10 @@ function mapPorChave(arr: Linha[]) {
   return m;
 }
 
-// ===== Filtragem por situação =====
-function normalizeSituacao(s?: string | number | null) {
-  if (s == null) return "";
-  try {
-    return stripAccents(String(s).trim().toLowerCase());
-  } catch {
-    return String(s).trim().toLowerCase();
-  }
-}
-
-function isExcludedSituacao(s?: string | number | null) {
-  const n = normalizeSituacao(s);
-  if (!n) return false;
-  // Excluir transferidos, casos de não comparecimento, remanejados e baixa de transferência
-  // Normalizamos acentos e caixa; usamos padrões amplos para cobrir variações
-  return /transferencia|transferido|nao\s*comparec|nao_comparec|remanejad|remanejado|baixa.*transfer/.test(n);
-}
-
-function filtrarVisiveis<T extends { Situacao?: string | number | null }>(arr: T[]) {
-  return arr.filter((l) => !isExcludedSituacao((l as any)?.Situacao));
-}
-
-function manterApenasAtivos<T extends { Situacao?: string | number | null }>(arr: T[]) {
-  return arr.filter((l) => normalizeSituacao((l as any)?.Situacao) === "ativo");
-}
-
 function mediaNotas(l: Linha): number | null {
   const valores: number[] = [];
   for (const d of DISCIPLINAS) {
-    const v = (l as any)[d];
+    const v = l[d];
     const n = typeof v === "string" ? Number(String(v).replace(",", ".")) : (v as number);
     if (Number.isFinite(n)) valores.push(n as number);
   }
@@ -454,11 +431,9 @@ export default function App() {
       };
       linhas.push(base);
     });
-  // Filtrar alunos exclu eddos antes de mesclar com b3 e manter apenas ativos
-  const visiveis = manterApenasAtivos(filtrarVisiveis(linhas));
     if (b3.length) {
       const m3 = mapPorChave(b3);
-      return visiveis.map((l) => ({ ...l, ...(m3.get(chaveAluno(l)) || {}) }));
+      return linhas.map((l) => ({ ...l, ...(m3.get(chaveAluno(l)) || {}) }));
     }
     return linhas;
   }, [b1, b2, b3]);
@@ -491,8 +466,6 @@ export default function App() {
     Risco_Nota?: "SIM" | "NÃO" | "";
     Risco_Frequencia?: "SIM" | "NÃO" | "";
     ALERTA?: string;
-    // médias por disciplina (MediaDisciplina_<DisciplinaName>)
-    [k: `MediaDisciplina_${string}`]: number | null | undefined;
   };
 
   const relatorio: LinhaOut[] = useMemo(() => {
@@ -547,25 +520,10 @@ export default function App() {
       base.Risco_Frequencia = base["Frequencia_Acumulada_%"] == null ? "" : (base["Frequencia_Acumulada_%"] as number) < freqMin ? "SIM" : "NÃO";
       base.ALERTA = base.Risco_Nota === "SIM" || base.Risco_Frequencia === "SIM" ? "⚠️ Verificar caso" : "";
 
-      // Calcular média por disciplina: média aritmética das notas presentes em l1, l2, l3 para cada disciplina
-      for (const d of DISCIPLINAS) {
-        const vals: number[] = [];
-        const v1 = num((l1 as any)?.[d]);
-        const v2 = num((l2 as any)?.[d]);
-        const v3 = num((l3 as any)?.[d]);
-        if (v1 != null) vals.push(v1);
-        if (v2 != null) vals.push(v2);
-        if (v3 != null) vals.push(v3);
-        const key = `MediaDisciplina_${d.replace(/\s+/g, "_")}`;
-        (base as any)[key] = vals.length ? Number((vals.reduce((s, x) => s + x, 0) / vals.length).toFixed(2)) : null;
-      }
-
       out.push(base);
     });
 
-  // Filtrar alunos exclu eddos do relatorio final e manter apenas ativos
-  const visiveis = manterApenasAtivos(filtrarVisiveis(out));
-  return visiveis.sort((a, b) => ((a.ALERTA || "") < (b.ALERTA || "") ? 1 : (a.ALERTA || "") > (b.ALERTA || "") ? -1 : (a.Aluno || "").localeCompare(b.Aluno || "")));
+    return out.sort((a, b) => (a.ALERTA < b.ALERTA ? 1 : a.ALERTA > b.ALERTA ? -1 : (a.Aluno || "").localeCompare(b.Aluno || "")));
   }, [b1, b2, b3, baseTerceiro, mediaMin, freqMin]);
 
   return (
@@ -666,7 +624,7 @@ export default function App() {
                 </tr>
               </thead>
               <tbody>
-                {(manterApenasAtivos(b3.length ? b3 : baseTerceiro)).map((l, idx) => (
+                {(b3.length ? b3 : baseTerceiro).map((l, idx) => (
                   <tr key={idx} className="border-t">
                     <td className="p-2 w-12">{l.Numero}</td>
                     <td className="p-2 min-w-56">{l.Aluno}</td>
@@ -717,9 +675,7 @@ export default function App() {
               <thead className="bg-gray-100">
                 <tr>
                   {[
-                    "Numero","Aluno","Situacao",
-                    ...DISCIPLINAS.map((d) => `MediaDisciplina_${d.replace(/\s+/g, "_")}`),
-                    "Frequencia_1B_%","Frequencia_2B_%","Frequencia_Acumulada_%","Risco_Nota","Risco_Frequencia","ALERTA",
+                    "Numero","Aluno","Situacao","Media_1B","Media_2B","Media_1e2","Media_3B","Media_Parcial_1_2_3","Frequencia_1B_%","Frequencia_2B_%","Frequencia_Acumulada_%","Risco_Nota","Risco_Frequencia","ALERTA",
                   ].map((h) => (
                     <th key={h} className="p-2 text-left whitespace-nowrap">{h}</th>
                   ))}
@@ -731,9 +687,11 @@ export default function App() {
                     <td className="p-2">{r.Numero}</td>
                     <td className="p-2 min-w-56">{r.Aluno}</td>
                     <td className="p-2">{r.Situacao}</td>
-                    {DISCIPLINAS.map((d) => (
-                      <td key={d} className="p-2">{(r as any)[`MediaDisciplina_${d.replace(/\s+/g, "_")}`] ?? ""}</td>
-                    ))}
+                    <td className="p-2">{r.Media_1B ?? ""}</td>
+                    <td className="p-2">{r.Media_2B ?? ""}</td>
+                    <td className="p-2 font-medium">{r.Media_1e2 ?? ""}</td>
+                    <td className="p-2">{r.Media_3B ?? ""}</td>
+                    <td className="p-2">{r.Media_Parcial_1_2_3 ?? ""}</td>
                     <td className="p-2">{r["Frequencia_1B_%"] ?? ""}</td>
                     <td className="p-2">{r["Frequencia_2B_%"] ?? ""}</td>
                     <td className="p-2 font-medium">{r["Frequencia_Acumulada_%"] ?? ""}</td>

@@ -523,7 +523,12 @@ export default function App() {
       out.push(base);
     });
 
-    return out.sort((a, b) => (a.ALERTA < b.ALERTA ? 1 : a.ALERTA > b.ALERTA ? -1 : (a.Aluno || "").localeCompare(b.Aluno || "")));
+    // Manter apenas alunos com situação 'ativo'
+    const apenasAtivos = out.filter((x) => {
+      const s = String(x.Situacao || "").normalize("NFD").replace(/\p{Diacritic}/gu, "").trim().toLowerCase();
+      return s === "ativo";
+    });
+    return apenasAtivos.sort((a, b) => (a.ALERTA < b.ALERTA ? 1 : a.ALERTA > b.ALERTA ? -1 : (a.Aluno || "").localeCompare(b.Aluno || "")));
   }, [b1, b2, b3, baseTerceiro, mediaMin, freqMin]);
 
   return (
